@@ -7,22 +7,31 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { toast } from '@/hooks/use-toast';
+import { Pin, PinOff, AlertCircle } from 'lucide-react';
 
+// Updated interface matching cleaned backend structure
 interface Analysis {
   id: string;
   email: string;
+
   input_data: {
-    currentMedications: any[];
+    currentMedications: { name: string; dosage?: string }[];
     age: string;
     gender: string;
   };
+
   result: {
-    overallRisk: number;
-    totalMME: number;
+    overallRisk?: number;
+    totalMME?: number;
+    recommendations?: string[];
   };
+
   pinned: boolean;
   summary: string;
-  created_at: { seconds: number };
+
+  created_at: {
+    seconds: number;
+  };
 }
 
 const History = () => {
@@ -31,6 +40,9 @@ const History = () => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // ------------------------------
+  // Fetch All Analyses
+  // ------------------------------
   useEffect(() => {
     const fetchAnalyses = async () => {
       const userJson = localStorage.getItem('user');
@@ -42,14 +54,21 @@ const History = () => {
       try {
         setIsLoading(true);
         const user = JSON.parse(userJson);
+
         const response = await axios.get(
           `http://localhost:8000/analysis/${encodeURIComponent(user.email)}`
         );
 
         if (response.data?.analyses) {
-          setAnalyses(response.data.analyses.filter(a =>
-            a && a.input_data && a.result && a.created_at
-          ));
+          const validAnalyses = response.data.analyses.filter((a: any) =>
+            a &&
+            a.result &&
+            typeof a.result.overallRisk === 'number' &&
+            a.input_data &&
+            a.created_at
+          );
+
+          setAnalyses(validAnalyses);
         } else {
           setAnalyses([]);
         }
@@ -58,7 +77,7 @@ const History = () => {
         toast({
           title: 'Error',
           description: error.response?.data?.detail || 'Failed to fetch analysis history',
-          variant: 'destructive',
+          variant: 'destructive'
         });
         setAnalyses([]);
       } finally {
@@ -68,6 +87,43 @@ const History = () => {
 
     fetchAnalyses();
   }, [navigate]);
+
+  // ------------------------------
+  // Pin / Unpin Analysis
+  // ------------------------------
+  const handlePinToggle = async (analysisId: string, currentPinStatus: boolean) => {
+    try {
+      await axios.put(`http://localhost:8000/analysis/${analysisId}/pin`, {
+        pinned: !currentPinStatus
+      });
+
+      setAnalyses(prev =>
+        prev.map(a => a.id === analysisId ? { ...a, pinned: !currentPinStatus } : a)
+      );
+
+      if (selectedEntry && selectedEntry.id === analysisId) {
+        setSelectedEntry({ ...selectedEntry, pinned: !currentPinStatus });
+      }
+
+      toast({
+        title: 'Success',
+        description: `Analysis ${!currentPinStatus ? 'pinned' : 'unpinned'}.`
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to update pin status.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // ------------------------------
+  // Risk Helpers
+  // ------------------------------
+  const getRiskValue = (analysis: Analysis | null): number => {
+    return analysis?.result?.overallRisk ?? 0;
+  };
 
   const getRiskCategory = (risk: number) => {
     if (risk > 0.6) return 'High';
@@ -81,32 +137,48 @@ const History = () => {
     return 'bg-green-500';
   };
 
-  const chartData = selectedEntry ? [
-    { name: "Safe", value: 100 - Math.round(selectedEntry.result.overallRisk * 100) },
-    { name: "Risk", value: Math.round(selectedEntry.result.overallRisk * 100) },
-  ] : [];
+  // ------------------------------
+  // Selected Entry Chart Data
+  // ------------------------------
+  const selectedRiskValue = getRiskValue(selectedEntry);
+  const chartData = [
+    { name: 'Safe', value: 100 - Math.round(selectedRiskValue * 100) },
+    { name: 'Risk', value: Math.round(selectedRiskValue * 100) }
+  ];
+  const COLORS = ['#4CAF50', '#FF5252'];
 
-  const COLORS = ["#4CAF50", "#FF5252"];
-
+  // ------------------------------
+  // Loading Screen
+  // ------------------------------
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-medical-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
       </div>
     );
   }
 
+  // ------------------------------
+  // Render UI
+  // ------------------------------
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl animate-fade-in">
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Analysis History</h1>
+      <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
+        Analysis History
+      </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        {/* ========== LEFT SIDE TABLE ========== */}
         <div className="md:col-span-2">
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle>Previous Analyses</CardTitle>
-              <CardDescription>View your previous medication risk assessments</CardDescription>
+              <CardDescription>
+                View and pin your previous medication risk assessments
+              </CardDescription>
             </CardHeader>
+
             <CardContent>
               {analyses.length > 0 ? (
                 <Table>
@@ -115,123 +187,158 @@ const History = () => {
                       <TableHead>Date</TableHead>
                       <TableHead>Medications</TableHead>
                       <TableHead>Risk</TableHead>
-                      <TableHead>Action</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
-                    {analyses.map((analysis) => (
-                      <TableRow key={analysis.id}>
-                        <TableCell>
-                          {new Date(analysis.created_at.seconds * 1000).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          {analysis.input_data.currentMedications.map((med: any) => (
-                            <Badge
-                              key={`${analysis.id}-${med.name}`}
-                              variant="outline"
-                              className="mr-1 mb-1"
-                            >
-                              {med.name}
+                    {analyses.map((analysis) => {
+                      const riskVal = getRiskValue(analysis);
+
+                      return (
+                        <TableRow
+                          key={analysis.id}
+                          onClick={() => setSelectedEntry(analysis)}
+                          className="cursor-pointer"
+                        >
+                          <TableCell>
+                            {new Date(analysis.created_at.seconds * 1000).toLocaleDateString()}
+                          </TableCell>
+
+                          <TableCell>
+                            {analysis.input_data.currentMedications.map((med, index) => (
+                              <Badge
+                                key={`${analysis.id}-${index}`}
+                                variant="outline"
+                                className="mr-1 mb-1"
+                              >
+                                {med.name}
+                              </Badge>
+                            ))}
+                          </TableCell>
+
+                          <TableCell>
+                            <Badge className={getRiskColor(riskVal)}>
+                              {getRiskCategory(riskVal)}
                             </Badge>
-                          ))}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getRiskColor(analysis.result.overallRisk)}>
-                            {getRiskCategory(analysis.result.overallRisk)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedEntry(analysis)}
-                          >
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+
+                          <TableCell className="text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEntry(analysis);
+                              }}
+                              className="mr-2"
+                            >
+                              View
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePinToggle(analysis.id, analysis.pinned);
+                              }}
+                            >
+                              {analysis.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                            </Button>
+                          </TableCell>
+
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               ) : (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  No analysis history available.
+                  <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium">
+                    No Analyses Found
+                  </h3>
+                  <p className="mt-1 text-sm">You have no saved analysis records.</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
+        {/* ========== RIGHT SIDE DETAILS PANEL ========== */}
         <div>
           {selectedEntry ? (
             <Card className="shadow-md h-full">
               <CardHeader>
-                <CardTitle>Analysis Details</CardTitle>
+                <CardTitle className="flex justify-between items-center">
+                  <span>Analysis Details</span>
+                  <Badge className={getRiskColor(selectedRiskValue)}>
+                    {getRiskCategory(selectedRiskValue)} Risk
+                  </Badge>
+                </CardTitle>
+
                 <CardDescription>
-                  {new Date(selectedEntry.created_at.seconds * 1000).toLocaleDateString()}
+                  {new Date(selectedEntry.created_at.seconds * 1000).toLocaleString()}
                 </CardDescription>
               </CardHeader>
+
               <CardContent className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Risk Assessment</h3>
-                  <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+
+                {/* CHART */}
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {chartData.map((entry, i) => (
+                          <Cell key={i} fill={COLORS[i]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => `${value}%`} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
 
+                {/* MED LIST */}
                 <div>
                   <h3 className="text-sm font-medium mb-2">Medications</h3>
-                  <div className="space-y-2">
-                    {selectedEntry.input_data.currentMedications.map((med: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                        <div>
-                          <span className="font-medium">{med.name}</span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                            ({med.dose} {med.unit})
-                          </span>
-                        </div>
-                        <Badge className={getRiskColor(med.potencyLevel || 0)}>
-                          MME: {med.mme?.toFixed(1) || 0}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                  {selectedEntry.input_data.currentMedications.map((med, index) => (
+                    <div key={index} className="p-2 bg-gray-50 dark:bg-gray-800 rounded mb-1">
+                      {med.name} ({med.dosage ?? 'N/A'})
+                    </div>
+                  ))}
                 </div>
 
+                {/* MME */}
                 <div>
-                  <h3 className="text-sm font-medium mb-2">Total MME</h3>
+                  <h3 className="text-sm font-medium mb-2">Total Daily MME</h3>
                   <Badge variant="outline" className="text-lg">
-                    {selectedEntry.result.totalMME.toFixed(1)}
+                    {selectedEntry.result.totalMME?.toFixed(1) ?? 'N/A'}
                   </Badge>
                 </div>
+
               </CardContent>
             </Card>
           ) : (
             <Card className="shadow-md h-full">
               <CardContent className="flex items-center justify-center h-full">
-                <p className="text-gray-500 dark:text-gray-400">Select an analysis to view details</p>
+                <div className="text-center text-gray-500 dark:text-gray-400">
+                  <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium">Select an Analysis</h3>
+                  <p className="mt-1 text-sm">Click on a record to view its details here.</p>
+                </div>
               </CardContent>
             </Card>
           )}
         </div>
+
       </div>
     </div>
   );
