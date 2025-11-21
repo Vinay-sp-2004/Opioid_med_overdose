@@ -26,14 +26,14 @@ const Dashboard = () => {
     liver_disease: false,
     kidney_disease: false,
     respiratory_disease: false,
-    treatment_duration_months: '',
+    treatment_duration_months: 0,
     concurrent_benzos: false,
     concurrent_muscle_relaxants: false,
     concurrent_sleep_meds: false,
     concurrent_antidepressants: false,
     tobacco_use: false,
     previous_overdose: false,
-    alcohol_use: '',
+    alcohol_use: 'None',
     primary_opioid: '',
     daily_dosage_mg: 0,
     daily_mme: 0,
@@ -134,7 +134,23 @@ const Dashboard = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/predict', patientData);
+      const primaryOpioidCombined = patientData.currentMedications
+        .map(med => med.name)
+        .join("|");
+
+      const payload = {
+        ...patientData,
+        primary_opioid: primaryOpioidCombined,
+        weight_kg: Number(patientData.weight),
+        height_cm: Number(patientData.height),
+        daily_dosage_mg: Number(patientData.daily_dosage_mg || 0),
+        daily_mme: Number(patientData.daily_mme || 0),
+        risk_factors_count: Number(patientData.risk_factors_count || 0),
+        treatment_duration_months: Number(patientData.treatment_duration_months || 0),
+        alcohol_use: patientData.alcohol_use || 'None',
+      };
+
+      const response = await axios.post("http://localhost:8000/predict", payload);
       const result = response.data.prediction;
 
       setRiskResults(result);
@@ -324,14 +340,14 @@ const Dashboard = () => {
                       liver_disease: false,
                       kidney_disease: false,
                       respiratory_disease: false,
-                      treatment_duration_months: '',
+                      treatment_duration_months: 0,
                       concurrent_benzos: false,
                       concurrent_muscle_relaxants: false,
                       concurrent_sleep_meds: false,
                       concurrent_antidepressants: false,
                       tobacco_use: false,
                       previous_overdose: false,
-                      alcohol_use: '',
+                      alcohol_use: 'None',
                       primary_opioid: '',
                       daily_dosage_mg: 0,
                       daily_mme: 0,

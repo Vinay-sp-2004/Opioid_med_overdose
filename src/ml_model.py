@@ -15,19 +15,31 @@ def predict_risk(patient_data):
     """
     # Load the trained model and preprocessing objects
     try:
-        model = joblib.load('best_model.pkl')
-        scaler = joblib.load('scaler.pkl')
-        label_encoders = joblib.load('label_encoders.pkl')
+        model = joblib.load('src/ml_model/best_model.pkl')
+        scaler = joblib.load('src/ml_model/scaler.pkl')
+        label_encoders = joblib.load('src/ml_model/label_encoders.pkl')
     except FileNotFoundError:
-        return {"error": "Model files not found. Please ensure best_model.pkl, scaler.pkl, and label_encoders.pkl are in the root directory."}
+        return {"error": "Model files not found. Please ensure best_model.pkl, scaler.pkl, and label_encoders.pkl are in the src/ml_model directory."}
 
     # Create a pandas DataFrame from the input data
     df = pd.DataFrame([patient_data])
+
+    # Replace empty strings with default values
+    df['gender'] = df['gender'].replace("", "unknown")
+    df['primary_opioid'] = df['primary_opioid'].replace("", "unknown")
+    df['alcohol_use'] = df['alcohol_use'].replace("", "None")
+
+    # Ensure missing categorical fields exist
+    required_cat = ["gender", "primary_opioid", "alcohol_use"]
+    for col in required_cat:
+        if col not in df:
+            df[col] = "unknown"
 
     # Preprocess the data
     # Label encode categorical features
     for col, le in label_encoders.items():
         # Handle unseen values by adding them to the encoder's classes
+        df[col] = df[col].astype(str)
         for label in df[col].unique():
             if label not in le.classes_:
                 le.classes_ = np.append(le.classes_, label)
@@ -37,8 +49,6 @@ def predict_risk(patient_data):
     df = df.drop(columns=list(label_encoders.keys()))
 
     # The model was trained on these features in this order.
-    # We need to make sure the dataframe has the same columns in the same order.
-    # The list of features is from the notebook.
     feature_names = [
         'age',
         'weight_kg',
@@ -67,6 +77,14 @@ def predict_risk(patient_data):
     # Align the dataframe columns with the feature names the model was trained on
     df = df.reindex(columns=feature_names, fill_value=0)
 
+    # --- Data Sanitization ---
+    numeric_fields = [
+        'age', 'weight_kg', 'height_cm', 'daily_dosage_mg',
+        'treatment_duration_months', 'daily_mme', 'risk_factors_count'
+    ]
+
+    for col in numeric_fields:
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
     # Scale numerical features
     scaled_features = scaler.transform(df)

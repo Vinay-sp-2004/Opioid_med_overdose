@@ -1,3 +1,4 @@
+
 # uvicorn main:app 
 # npm run dev 
 from fastapi import FastAPI, Body, Request
@@ -8,6 +9,7 @@ from middleware import add_cors_middleware
 from fastapi.responses import JSONResponse
 from typing import Optional, Any, Dict, List
 from ml_model import predict_risk
+import traceback
 
 app = FastAPI()
 add_cors_middleware(app)
@@ -75,17 +77,67 @@ class PatientData(BaseModel):
 @app.post("/predict")
 async def predict(patient_data: Dict[str, Any] = Body(...)):
     try:
-        # Convert boolean fields from string to boolean if necessary
-        for key in ['has_chronic_pain', 'has_mental_health_dx', 'history_of_substance_abuse', 'liver_disease', 'kidney_disease', 'respiratory_disease', 'concurrent_benzos', 'concurrent_muscle_relaxants', 'concurrent_sleep_meds', 'concurrent_antidepressants', 'tobacco_use', 'previous_overdose']:
-            if isinstance(patient_data.get(key), str):
-                patient_data[key] = patient_data[key].lower() in ['true', '1', 't', 'y', 'yes']
+        # --- Standardize incoming fields ---
+        patient_data["weight_kg"] = int(patient_data.get("weight_kg") or patient_data.get("weight") or 0)
+        patient_data["height_cm"] = int(patient_data.get("height_cm") or patient_data.get("height") or 0)
+        patient_data["daily_dosage_mg"] = float(patient_data.get("daily_dosage_mg") or 0)
+        patient_data["daily_mme"] = float(patient_data.get("daily_mme") or 0)
+        patient_data["risk_factors_count"] = int(patient_data.get("risk_factors_count") or 0)
 
+        # Convert duration to int
+        try:
+            patient_data["treatment_duration_months"] = int(patient_data.get("treatment_duration_months") or 0)
+        except:
+            patient_data["treatment_duration_months"] = 0
+
+        # Boolean normalization
+        bool_fields = [
+            'has_chronic_pain', 'has_mental_health_dx', 'history_of_substance_abuse',
+            'liver_disease', 'kidney_disease', 'respiratory_disease',
+            'concurrent_benzos', 'concurrent_muscle_relaxants',
+            'concurrent_sleep_meds', 'concurrent_antidepressants',
+            'tobacco_use', 'previous_overdose'
+        ]
+
+        for key in bool_fields:
+            value = patient_data.get(key)
+            if isinstance(value, str):
+                patient_data[key] = value.lower() in ["1", "true", "yes", "y", "t"]
+            patient_data[key] = bool(patient_data.get(key, False))
+
+        # Combine all medication names → primary_opioid
+        medication_names = []
+        if isinstance(patient_data.get("currentMedications"), list):
+            for m in patient_data["currentMedications"]:
+                if isinstance(m, dict) and "name" in m:
+                    medication_names.append(m["name"])
+
+        combined_primary = "|".join(medication_names) if medication_names else "unknown"
+        patient_data["primary_opioid"] = combined_primary
+
+        # If alcohol_use is missing, set default
+        if not patient_data.get("alcohol_use"):
+            patient_data["alcohol_use"] = "None"
+
+        # --- Clean unused keys ---
+        patient_data.pop("currentMedications", None)
+        patient_data.pop("medicalHistory", None)
+        patient_data.pop("weight", None)
+        patient_data.pop("height", None)
+
+        # --- Call ML model ---
         result = predict_risk(patient_data)
+
         if "error" in result:
             return JSONResponse(status_code=500, content={"detail": result["error"]})
+
         return {"status": "success", "prediction": result}
+
     except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e), "traceback": traceback.format_exc()}
+        )
     
 @app.get("/")
 def read_root():

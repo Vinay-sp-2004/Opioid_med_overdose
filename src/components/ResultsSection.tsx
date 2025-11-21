@@ -30,13 +30,13 @@ export const ResultsSection = ({ results, patientData }: ResultsSectionProps) =>
   // Prepare data for the bar chart
   const medicationRiskData = patientData.currentMedications.map((med: any) => ({
     name: med.name,
-    risk: Math.round(riskLevel * 100 * (Math.random() * 0.5 + 0.5)) // Dummy data for now
+    risk: (riskLevel * 100 * (Math.random() * 0.5 + 0.5)).toFixed(2) // Dummy data for now
   }));
   
   // Prepare data for the pie chart
   const conditionData = [
-    { name: "Safe", value: 100 - Math.round(riskLevel * 100) },
-    { name: "Risk", value: Math.round(riskLevel * 100) },
+    { name: "Safe", value: 100 - parseFloat((riskLevel * 100).toFixed(2)) },
+    { name: "Risk", value: parseFloat((riskLevel * 100).toFixed(2)) },
   ];
   
   const COLORS = ["#4CAF50", "#FFA726"];
@@ -61,7 +61,7 @@ export const ResultsSection = ({ results, patientData }: ResultsSectionProps) =>
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="text-sm font-medium">Overdose Risk</span>
-                    <span className="text-sm font-medium">{Math.round(riskLevel * 100)}%</span>
+                    <span className="text-sm font-medium">{(riskLevel * 100).toFixed(2)}%</span>
                   </div>
                   <Progress value={riskLevel * 100} className="h-2" />
                 </div>
@@ -90,7 +90,7 @@ export const ResultsSection = ({ results, patientData }: ResultsSectionProps) =>
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(2)}%`}
                   >
                     {conditionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
