@@ -22,6 +22,15 @@ users_ref = db.collection("users")
 profiles_ref = db.collection("profiles")
 analyses_ref = db.collection("analyses")
 
+@app.middleware("http")
+async def log_exceptions(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        print("\n🔥 GLOBAL ERROR 🔥")
+        traceback.print_exc()
+        raise e
+
 class User(BaseModel):
     name: str
     email: str
@@ -77,6 +86,9 @@ class PatientData(BaseModel):
 @app.post("/predict")
 async def predict(patient_data: Dict[str, Any] = Body(...)):
     try:
+        print("➡️ POST /predict")
+        print("Incoming data:", patient_data)
+
         # --- Standardize incoming fields ---
         patient_data["weight_kg"] = int(patient_data.get("weight_kg") or patient_data.get("weight") or 0)
         patient_data["height_cm"] = int(patient_data.get("height_cm") or patient_data.get("height") or 0)
@@ -90,7 +102,7 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
         except:
             patient_data["treatment_duration_months"] = 0
 
-        # Boolean normalization
+        # Boolean normalization  
         bool_fields = [
             'has_chronic_pain', 'has_mental_health_dx', 'history_of_substance_abuse',
             'liver_disease', 'kidney_disease', 'respiratory_disease',
@@ -119,21 +131,28 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
         if not patient_data.get("alcohol_use"):
             patient_data["alcohol_use"] = "None"
 
-        # --- Clean unused keys ---
+        # Remove unused fields
         patient_data.pop("currentMedications", None)
         patient_data.pop("medicalHistory", None)
         patient_data.pop("weight", None)
         patient_data.pop("height", None)
 
+        print("➡️ Calling ML model with:", patient_data)
+
         # --- Call ML model ---
         result = predict_risk(patient_data)
 
+        print("⬅️ ML returned:", result)
+
         if "error" in result:
+            print("🔥 ML error:", result["error"])
             return JSONResponse(status_code=500, content={"detail": result["error"]})
 
         return {"status": "success", "prediction": result}
 
     except Exception as e:
+        print("🔥 ERROR IN /predict:", e)
+        print(traceback.format_exc())
         return JSONResponse(
             status_code=500,
             content={"detail": str(e), "traceback": traceback.format_exc()}

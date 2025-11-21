@@ -15,11 +15,11 @@ def predict_risk(patient_data):
     """
     # Load the trained model and preprocessing objects
     try:
-        model = joblib.load('src/ml_model/best_model.pkl')
-        scaler = joblib.load('src/ml_model/scaler.pkl')
-        label_encoders = joblib.load('src/ml_model/label_encoders.pkl')
+        model = joblib.load('ml_model/best_model.pkl')
+        scaler = joblib.load('ml_model/scaler.pkl')
+        label_encoders = joblib.load('ml_model/label_encoders.pkl')
     except FileNotFoundError:
-        return {"error": "Model files not found. Please ensure best_model.pkl, scaler.pkl, and label_encoders.pkl are in the src/ml_model directory."}
+        return {"error": "Model files not found. Please ensure best_model.pkl, scaler.pkl, and label_encoders.pkl are in the ml_model directory."}
 
     # Create a pandas DataFrame from the input data
     df = pd.DataFrame([patient_data])
