@@ -18,6 +18,11 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Explanation from "./pages/Explanation";
 
+import { createContext } from "react";
+
+export const ThemeContext = createContext<any>(null);
+
+
 const queryClient = new QueryClient();
 
 // Protected route component
@@ -31,9 +36,9 @@ const ProtectedRoute = ({ children }) => {
       setIsLoggedIn(!!user);
       setLoading(false);
     };
-    
+
     checkLogin();
-    
+
     // Listen for storage changes
     window.addEventListener('storage', checkLogin);
     return () => {
@@ -49,6 +54,7 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const App = () => (
+
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -63,41 +69,41 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
               <Route path="/about" element={<About />} />
               <Route path="/explanation" element={<Explanation />} />
-              
+
               {/* Protected Routes */}
-              <Route 
-                path="/dashboard" 
+              <Route
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <Dashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/history" 
+              <Route
+                path="/history"
                 element={
                   <ProtectedRoute>
                     <History />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/settings" 
+              <Route
+                path="/settings"
                 element={
                   <ProtectedRoute>
                     <Settings />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/profile" 
+              <Route
+                path="/profile"
                 element={
                   <ProtectedRoute>
                     <Profile />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

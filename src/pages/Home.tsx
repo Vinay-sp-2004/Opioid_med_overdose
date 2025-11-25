@@ -8,29 +8,29 @@ const Home = () => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // theme state (persisted)
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored) return stored === "dark";
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  // // theme state (persisted)
+  // const [isDark, setIsDark] = useState<boolean>(() => {
+  //   const stored = localStorage.getItem("theme");
+  //   if (stored) return stored === "dark";
+  //   return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // });
 
   useEffect(() => {
     const userJson = localStorage.getItem("user");
     setIsLoggedIn(!!userJson);
   }, []);
 
-  // apply theme to document element so Tailwind dark: classes work
-  useEffect(() => {
-    const root = document.documentElement;
-    if (isDark) {
-      root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDark]);
+  // // apply theme to document element so Tailwind dark: classes work
+  // useEffect(() => {
+  //   const root = document.documentElement;
+  //   if (isDark) {
+  //     root.classList.add("dark");
+  //     localStorage.setItem("theme", "dark");
+  //   } else {
+  //     root.classList.remove("dark");
+  //     localStorage.setItem("theme", "light");
+  //   }
+  // }, [isDark]);
 
   const handleLogout = () => {
     // remove auth and optional local profile copies
@@ -46,23 +46,22 @@ const Home = () => {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in w-full min-h-screen bg-gradient-to-br 
+    from-gray-50 to-white 
+    dark:from-gray-900 dark:to-gray-800 
+    transition-all duration-500">
       {/* Theme toggle (non-structural, positioned over page) */}
-      <div className="fixed top-4 right-4 z-50">
-        <button
-          aria-label="Toggle theme"
-          onClick={() => setIsDark(d => !d)}
-          className="p-2 rounded-md shadow-sm bg-medical-100 text-medical-800 dark:bg-gray-800 dark:text-medical-100"
-        >
-          {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </button>
-      </div>
 
-      <section className="bg-gradient-to-r from-medical-300 to-medical-100 py-20 px-4">
+      <section className="
+  bg-gradient-to-r 
+  from-medical-300 to-medical-100 
+  dark:from-gray-900 dark:to-gray-800 
+  py-20 px-4 transition-colors duration-300
+">
         <div className="container mx-auto max-w-5xl">
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 md:pr-10">
-              <h1 className="text-4xl md:text-5xl font-heading font-bold text-gray-800 dark:text-gray-100 mb-6 leading-tight">
+              <h1 className="text-4xl md:text-5xl font-heading font-bold text-gray-800 dark:text-gray-100 mb-6 leading-tight drop-shadow-sm">
                 Safe Medication Management. <span className="text-medical-600 dark:text-medical-300">Better Health.</span>
               </h1>
               <p className="text-lg text-gray-700 dark:text-gray-300 mb-8">
@@ -88,104 +87,147 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-16 px-4 bg-white dark:bg-gray-900">
-        <div className="container mx-auto max-w-5xl">
-          <h2 className="text-3xl font-heading font-bold text-center mb-12 text-gray-900 dark:text-gray-100">How MedSafety Works</h2>
+      <section className="py-20 px-4 bg-white dark:bg-gray-900 transition-colors duration-500">
+        <div className="container mx-auto max-w-6xl">
+          <h2 className="text-3xl font-heading font-bold text-center mb-12 text-gray-900 dark:text-gray-100">
+            How MedSafety Works
+          </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="shadow-md card-hover bg-white dark:bg-gray-800 p-6 rounded-lg">
-              <div className="rounded-full bg-medical-100 dark:bg-medical-800 p-3 w-12 h-12 flex items-center justify-center mb-4">
-                <User className="h-6 w-6 text-medical-600 dark:text-medical-200" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+
+            {/* Step 1 */}
+            <div className="shadow-lg rounded-2xl p-6 bg-white dark:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div className="rounded-full p-4 w-14 h-14 flex items-center justify-center mb-4 
+                        bg-medical-100 dark:bg-gray-700 shadow-inner">
+                <User className="h-7 w-7 text-medical-600 dark:text-white drop-shadow-md" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-gray-900 dark:text-gray-100">1. Enter Patient Data</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Provide basic medical information and current medications for accurate analysis.
+
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                1. Enter Patient Data
+              </h3>
+
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                Provide basic medical details and current medications for accurate risk assessment.
               </p>
             </div>
 
-            <div className="shadow-md card-hover bg-white dark:bg-gray-800 p-6 rounded-lg">
-              <div className="rounded-full bg-medical-100 dark:bg-medical-800 p-3 w-12 h-12 flex items-center justify-center mb-4">
-                <ChartLine className="h-6 w-6 text-medical-600 dark:text-medical-200" />
+            {/* Step 2 */}
+            <div className="shadow-lg rounded-2xl p-6 bg-white dark:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div className="rounded-full p-4 w-14 h-14 flex items-center justify-center mb-4 
+                        bg-medical-100 dark:bg-gray-700 shadow-inner">
+                <ChartLine className="h-7 w-7 text-medical-600 dark:text-white drop-shadow-md" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-gray-900 dark:text-gray-100">2. Review Analysis</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Our system analyzes medication interactions and identifies potential overdose risks.
+
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                2. Review Analysis
+              </h3>
+
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                The system evaluates opioid interactions and predicts overdose probability with context.
               </p>
             </div>
 
-            <div className="shadow-md card-hover bg-white dark:bg-gray-800 p-6 rounded-lg">
-              <div className="rounded-full bg-medical-100 dark:bg-medical-800 p-3 w-12 h-12 flex items-center justify-center mb-4">
-                <ChartBar className="h-6 w-6 text-medical-600 dark:text-medical-200" />
+            {/* Step 3 */}
+            <div className="shadow-lg rounded-2xl p-6 bg-white dark:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div className="rounded-full p-4 w-14 h-14 flex items-center justify-center mb-4 
+                        bg-medical-100 dark:bg-gray-700 shadow-inner">
+                <ChartBar className="h-7 w-7 text-medical-600 dark:text-white drop-shadow-md" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-gray-900 dark:text-gray-100">3. Get Recommendations</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Receive personalized guidance to ensure safe medication usage and prevent adverse effects.
+
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                3. Get Recommendations
+              </h3>
+
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                Receive safe-use guidance and clinical recommendations based on model analysis.
               </p>
             </div>
+
           </div>
         </div>
       </section>
 
-      <section className="py-16 px-4 bg-medical-100/50 dark:bg-transparent">
-        <div className="container mx-auto max-w-5xl">
-          <h2 className="text-3xl font-heading font-bold text-center mb-12 text-gray-900 dark:text-gray-100">Features</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="flex bg-white dark:bg-gray-800 p-6 rounded-lg">
+      <section className="py-20 px-4 bg-medical-100/50 dark:bg-gray-900 transition-colors duration-500">
+        <div className="container mx-auto max-w-6xl">
+          <h2 className="text-3xl font-heading font-bold text-center mb-12 text-gray-900 dark:text-gray-100">
+            Features
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+
+            {/* Feature 1 */}
+            <div className="flex shadow-lg rounded-2xl p-6 bg-white dark:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <div className="mr-4">
-                <div className="rounded-full bg-medical-300 dark:bg-medical-800 p-3 w-12 h-12 flex items-center justify-center">
-                  <ChartBar className="h-6 w-6 text-medical-600 dark:text-medical-200" />
+                <div className="rounded-full p-4 w-14 h-14 flex items-center justify-center 
+                          bg-medical-200 dark:bg-gray-700 shadow-inner">
+                  <ChartBar className="h-7 w-7 text-medical-700 dark:text-white drop-shadow-md" />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl font-medium mb-2 text-gray-900 dark:text-gray-100">Risk Visualization</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Clear charts and graphs help you understand potential medication risks and interactions.
+                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                  Risk Visualization
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Clear charts and visuals help you understand medication risks and interactions.
                 </p>
               </div>
             </div>
 
-            <div className="flex bg-white dark:bg-gray-800 p-6 rounded-lg">
+            {/* Feature 2 */}
+            <div className="flex shadow-lg rounded-2xl p-6 bg-white dark:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <div className="mr-4">
-                <div className="rounded-full bg-medical-300 dark:bg-medical-800 p-3 w-12 h-12 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-medical-600 dark:text-medical-200" />
+                <div className="rounded-full p-4 w-14 h-14 flex items-center justify-center 
+                          bg-medical-200 dark:bg-gray-700 shadow-inner">
+                  <Clock className="h-7 w-7 text-medical-700 dark:text-white drop-shadow-md" />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl font-medium mb-2 text-gray-900 dark:text-gray-100">Real-time Analysis</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Get immediate feedback on medication safety without waiting for appointments.
+                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                  Real-time Analysis
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Get instant insights without needing appointments or delays.
                 </p>
               </div>
             </div>
 
-            <div className="flex bg-white dark:bg-gray-800 p-6 rounded-lg">
+            {/* Feature 3 */}
+            <div className="flex shadow-lg rounded-2xl p-6 bg-white dark:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <div className="mr-4">
-                <div className="rounded-full bg-medical-300 dark:bg-medical-800 p-3 w-12 h-12 flex items-center justify-center">
-                  <User className="h-6 w-6 text-medical-600 dark:text-medical-200" />
+                <div className="rounded-full p-4 w-14 h-14 flex items-center justify-center 
+                          bg-medical-200 dark:bg-gray-700 shadow-inner">
+                  <User className="h-7 w-7 text-medical-700 dark:text-white drop-shadow-md" />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl font-medium mb-2 text-gray-900 dark:text-gray-100">Personalized Guidance</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Custom recommendations based on your specific medical profile and needs.
+                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                  Personalized Guidance
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Tailored recommendations fit to your medical history and lifestyle.
                 </p>
               </div>
             </div>
 
-            <div className="flex bg-white dark:bg-gray-800 p-6 rounded-lg">
+            {/* Feature 4 */}
+            <div className="flex shadow-lg rounded-2xl p-6 bg-white dark:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <div className="mr-4">
-                <div className="rounded-full bg-medical-300 dark:bg-medical-800 p-3 w-12 h-12 flex items-center justify-center">
-                  <ChartLine className="h-6 w-6 text-medical-600 dark:text-medical-200" />
+                <div className="rounded-full p-4 w-14 h-14 flex items-center justify-center 
+                          bg-medical-200 dark:bg-gray-700 shadow-inner">
+                  <ChartLine className="h-7 w-7 text-medical-700 dark:text-white drop-shadow-md" />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl font-medium mb-2 text-gray-900 dark:text-gray-100">Progress Tracking</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Monitor medication safety over time with tracked results and adjustments.
+                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                  Progress Tracking
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Track safety changes over time with stored analysis reports.
                 </p>
               </div>
             </div>
+
           </div>
         </div>
       </section>

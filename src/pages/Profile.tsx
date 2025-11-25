@@ -30,17 +30,15 @@ const Profile = () => {
       navigate("/login");
       return;
     }
-    const user = JSON.parse(userJson); // { name, email }
-    // prefill from auth user
+    const user = JSON.parse(userJson);
     setProfileData(prev => ({
       ...prev,
       name: user.name || prev.name,
       email: user.email || prev.email,
     }));
 
-    // fetch profile from backend (Firestore) if exists
     (async () => {
-      setIsLoading(true); // <-- start loading
+      setIsLoading(true);
       try {
         const res = await axios.get(`http://localhost:8000/profile/${encodeURIComponent(user.email)}`, {
           headers: { "Accept": "application/json" }
@@ -62,13 +60,13 @@ const Profile = () => {
       } catch (err) {
         console.warn("No profile found or fetch error", err);
       } finally {
-        setIsLoading(false); // <-- stop loading
+        setIsLoading(false);
       }
     })();
   }, [navigate]);
 
   const handleInputChange = (field: string, value: string) => {
-    if (field === "email") return; // email is unique id and read-only
+    if (field === "email") return;
     setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -76,7 +74,6 @@ const Profile = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      // Map frontend keys to backend/profile model keys
       const payload = {
         name: profileData.name,
         email: profileData.email,
@@ -88,14 +85,12 @@ const Profile = () => {
         doc: profileData.primaryPhysician,
       };
 
-      // Put to backend (uses email as document id)
       await axios.put(
         `http://localhost:8000/profile/${encodeURIComponent(profileData.email)}`,
         payload,
         { headers: { "Content-Type": "application/json", "Accept": "application/json" } }
       );
 
-      // Optionally keep local copy
       localStorage.setItem(`userProfile_${profileData.email}`, JSON.stringify(profileData));
 
       toast({
@@ -121,8 +116,7 @@ const Profile = () => {
       .toUpperCase();
   };
 
-  // Render: show loader while fetching
-  if (isLoading) {
+  if (isLoading && !profileData.email) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -141,7 +135,6 @@ const Profile = () => {
       <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">My Profile</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left column - Personal info card */}
         <div className="lg:col-span-4">
           <Card className="shadow-md">
             <CardHeader className="text-center">
@@ -154,7 +147,7 @@ const Profile = () => {
                 </Avatar>
               </div>
               <CardTitle>{profileData.name || 'Your Name'}</CardTitle>
-              <CardDescription className="flex flex-col space-y-2 items-center justify-center mt-2">
+              <div className="flex flex-col space-y-2 items-center justify-center mt-2 text-sm text-muted-foreground">
                 {profileData.email && (
                   <div className="flex items-center">
                     <Mail className="h-4 w-4 mr-2" />
@@ -167,7 +160,7 @@ const Profile = () => {
                     <span>{profileData.phone}</span>
                   </div>
                 )}
-              </CardDescription>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 text-sm">
@@ -194,7 +187,6 @@ const Profile = () => {
           </Card>
         </div>
 
-        {/* Right column - Edit form */}
         <div className="lg:col-span-8">
           <Card className="shadow-md">
             <form onSubmit={handleSubmit}>

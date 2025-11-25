@@ -1,4 +1,3 @@
-
 # uvicorn main:app 
 # npm run dev 
 from fastapi import FastAPI, Body, Request
@@ -22,6 +21,7 @@ users_ref = db.collection("users")
 profiles_ref = db.collection("profiles")
 analyses_ref = db.collection("analyses")
 
+
 @app.middleware("http")
 async def log_exceptions(request: Request, call_next):
     try:
@@ -31,14 +31,17 @@ async def log_exceptions(request: Request, call_next):
         traceback.print_exc()
         raise e
 
+
 class User(BaseModel):
     name: str
     email: str
     password: str
 
+
 class LoginRequest(BaseModel):
     email: str
     password: str
+
 
 class Profile(BaseModel):
     age: Optional[int] = None
@@ -49,13 +52,15 @@ class Profile(BaseModel):
     medCond: Optional[str] = None
     allergy: Optional[str] = None
     doc: Optional[str] = None
-    
+
+
 class Analysis(BaseModel):
     email: str
     input_data: Optional[Dict[str, Any]] = {}
     result: Optional[Dict[str, Any]] = {}
     pinned: Optional[bool] = False
     summary: Optional[str] = None
+
 
 class PatientData(BaseModel):
     age: int
@@ -83,6 +88,7 @@ class PatientData(BaseModel):
     daily_mme: float
     risk_factors_count: int
 
+
 @app.post("/predict")
 async def predict(patient_data: Dict[str, Any] = Body(...)):
     try:
@@ -90,18 +96,22 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
         print("Incoming data:", patient_data)
 
         # --- 1. Basic numeric normalization ---
-        # Prefer explicit *_kg / *_cm, fall back to weight/height strings
-        patient_data["weight_kg"] = int(patient_data.get("weight_kg") or patient_data.get("weight") or 0)
-        patient_data["height_cm"] = int(patient_data.get("height_cm") or patient_data.get("height") or 0)
+        patient_data["weight_kg"] = int(
+            patient_data.get("weight_kg") or patient_data.get("weight") or 0
+        )
+        patient_data["height_cm"] = int(
+            patient_data.get("height_cm") or patient_data.get("height") or 0
+        )
 
-        # daily dosage, mme, risk factors
+        # daily_dosage_mg kept for compatibility (even if not used directly)
         patient_data["daily_dosage_mg"] = float(patient_data.get("daily_dosage_mg") or 0)
         patient_data["daily_mme"] = float(patient_data.get("daily_mme") or 0)
         patient_data["risk_factors_count"] = int(patient_data.get("risk_factors_count") or 0)
 
-        # treatment duration
         try:
-            patient_data["treatment_duration_months"] = int(patient_data.get("treatment_duration_months") or 0)
+            patient_data["treatment_duration_months"] = int(
+                patient_data.get("treatment_duration_months") or 0
+            )
         except Exception:
             patient_data["treatment_duration_months"] = 0
 
@@ -109,7 +119,7 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
         bool_fields = [
             "has_chronic_pain",
             "has_mental_health_dx",
-            "history_of_substance_abuse",   # ✅ make sure this is spelled EXACTLY like in training
+            "history_of_substance_abuse",
             "liver_disease",
             "kidney_disease",
             "respiratory_disease",
@@ -129,28 +139,23 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
             else:
                 patient_data[key] = bool(value)
 
-        # --- 3. Compute risk_factors_count if not provided ---
+        # --- 3. Compute risk_factors_count if not provided or zero ---
         if "risk_factors_count" not in patient_data or patient_data["risk_factors_count"] == 0:
             patient_data["risk_factors_count"] = sum(
                 1 for key in bool_fields if patient_data.get(key)
             )
 
         # --- 4. Normalize categorical fields to match training ---
-
-        # gender: training used "Female", "Male"
         gender_raw = str(patient_data.get("gender", "")).strip().lower()
         if gender_raw == "male":
             patient_data["gender"] = "Male"
         elif gender_raw == "female":
             patient_data["gender"] = "Female"
         else:
-            patient_data["gender"] = "Female"  # or some default / majority class
+            patient_data["gender"] = "Female"
 
-        # alcohol_use: training used Heavy / Light / Moderate / nan
         alcohol_raw = str(patient_data.get("alcohol_use", "")).strip().lower()
-        if alcohol_raw in ["none", "no", "nil"]:
-            # choose how you want to treat this;
-            # here I'll map to 'nan' which existed in training
+        if alcohol_raw in ["none", "no", "nil", ""]:
             patient_data["alcohol_use"] = "nan"
         elif alcohol_raw == "light":
             patient_data["alcohol_use"] = "Light"
@@ -162,83 +167,18 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
             patient_data["alcohol_use"] = "nan"
 
         # --- 5. Derive primary_opioid from currentMedications ---
-        # Your model was trained with a single primary_opioid like "Morphine", not "A|B|C".
         opioid_name = None
         if isinstance(patient_data.get("currentMedications"), list):
-            # Simple rule: pick the medication with highest "potency" or first in list
             meds = patient_data["currentMedications"]
             if meds:
-                # if you have a potency field, you can do smarter logic here
                 opioid_name = meds[-1].get("name") or meds[0].get("name")
 
         if not opioid_name:
-            opioid_name = "Morphine"  # some default opioid from training
+            opioid_name = "Morphine"
 
         patient_data["primary_opioid"] = opioid_name
-        
-        # --- 6. (Optional) estimate daily_mme if it's still zero ---
-        mme_factors = {
-            "Morphine": 1.0,
-            "Hydrocodone": 1.0,
-            "Oxycodone": 1.5,
-            "Hydromorphone": 4.0,
-            "Fentanyl": 100.0,
-            "Codeine": 0.15,
-            "Tramadol": 0.1,
-        }
-        total_mme = 0.0
-        if isinstance(patient_data.get("currentMedications"), list):
 
-            for m in patient_data["currentMedications"]:
-                try:
-                    name = m.get("name")
-                    dose_mg = float(m.get("dosage") or 0)
-                    freq = m.get("frequency", "").lower()
-                    if freq == "once":
-                        times_per_day = 1
-                    elif freq == "twice":
-                        times_per_day = 2
-                    elif freq == "thrice":
-                        times_per_day = 3
-                    else:
-                        times_per_day = 1
-
-                    factor = mme_factors.get(name, 1.0)
-                    total_mme += dose_mg * factor * times_per_day
-                except Exception:
-                    continue
-            patient_data["daily_mme"] = total_mme
-            
-        # --- 7. Clean up transient fields so predict_risk gets only model-relevant keys ---
-        med_contrib = []
-        if isinstance(patient_data.get("currentMedications"), list):
-            total_mme = patient_data["daily_mme"]
-            for m in patient_data.get("currentMedications", []):
-                try:
-                    name = m.get("name")
-                    dose = float(m.get("dosage") or 0)
-                    freq = m.get("frequency", "").lower()
-
-                    if freq == "once":
-                        f = 1
-                    elif freq == "twice":
-                        f = 2
-                    elif freq == "thrice":
-                        f = 3
-                    else:
-                        f = 1
-
-                    factor = mme_factors.get(name, 1.0)
-                    med_mme = dose * factor * f
-
-                    pct = (med_mme / total_mme * 100) if total_mme > 0 else 0
-                    med_contrib.append({"name": name, "value": round(pct, 2)})
-                except:
-                    continue
-
-            patient_data["medicine_contribution"] = med_contrib
-
-
+        # Build model input (drop non-model fields)
         model_input = patient_data.copy()
         model_input.pop("currentMedications", None)
         model_input.pop("medicalHistory", None)
@@ -248,16 +188,26 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
         print("➡️ Calling ML model with:", model_input)
 
         # --- Call ML model ---
-        result = predict_risk(model_input)
-        print("⬅️ ML returned:", result)
+        raw_result = predict_risk(model_input)
+        print("⬅️ ML returned:", raw_result)
 
-        if "error" in result:
-            print("🔥 ML error:", result["error"])
-            return JSONResponse(status_code=500, content={"detail": result["error"]})
+        if "error" in raw_result:
+            print("🔥 ML error:", raw_result["error"])
+            return JSONResponse(status_code=500, content={"detail": raw_result["error"]})
 
-        result["daily_mme"] = patient_data.get("daily_mme", 0)
-        result["medicine_contribution"] = patient_data.get("medicine_contribution", [])
-        return {"status": "success", "prediction": result}
+        # Normalise into unified prediction object (Option C – both stored)
+        risk_prob = float(raw_result.get("risk_probability", 0.0))
+        daily_mme = float(patient_data.get("daily_mme") or 0.0)
+
+        prediction = {
+            **raw_result,
+            "risk_probability": risk_prob,  # 0-1 float
+            "daily_mme": daily_mme,         # numeric
+            "overallRisk": risk_prob,       # for History.tsx
+            "totalMME": daily_mme,          # for History.tsx
+        }
+
+        return {"status": "success", "prediction": prediction}
 
     except Exception as e:
         print("🔥 ERROR IN /predict:", e)
@@ -266,32 +216,39 @@ async def predict(patient_data: Dict[str, Any] = Body(...)):
             status_code=500,
             content={"detail": str(e), "traceback": traceback.format_exc()},
         )
-    
+
+
 @app.get("/")
 def read_root():
     return {"message": "API running!"}
+
 
 @app.get("/")
 def home():
     return {"message": "CORS works fine!"}
 
+
 @app.post("/add_user")
 async def add_user(user: User = Body(...)):
     try:
         user_dict = user.dict()
-        # Check if user already exists
         if users_ref.document(user.email).get().exists:
-            return JSONResponse(status_code=400, content={"detail": "User with this email already exists"})
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "User with this email already exists"},
+            )
         users_ref.document(user.email).set(user_dict)
         return {"status": "success", "user": user_dict}
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
-        
+
+
 @app.get("/get_users")
 def get_users():
     docs = users_ref.stream()
     users = [doc.to_dict() for doc in docs]
     return {"users": users}
+
 
 @app.post("/login")
 async def login(credentials: LoginRequest = Body(...)):
@@ -302,11 +259,11 @@ async def login(credentials: LoginRequest = Body(...)):
         user = doc.to_dict()
         if user.get("password") != credentials.password:
             return JSONResponse(status_code=401, content={"detail": "Invalid credentials"})
-        # Remove password before returning
         user.pop("password", None)
         return {"status": "success", "user": user}
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
+
 
 @app.get("/profile/{email}")
 async def get_profile(email: str):
@@ -318,24 +275,29 @@ async def get_profile(email: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
+
 @app.put("/profile/{email}")
 async def upsert_profile(email: str, profile: Profile = Body(...)):
     try:
         profile_dict = profile.dict()
-        # Ensure email in body matches URL id (or override)
         profile_dict["email"] = email
         profiles_ref.document(email).set(profile_dict, merge=True)
         return {"status": "success", "profile": profile_dict}
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
+
 @app.post("/analysis")
 async def save_analysis(analysis: Analysis = Body(...)):
+    """
+    Option C – store both:
+      - input_data: full patient input (including daily_mme)
+      - result: prediction object with overallRisk / totalMME / risk_probability / daily_mme
+    """
     try:
         data = analysis.dict()
         data["created_at"] = firestore.SERVER_TIMESTAMP
 
-        # ✅ Validation
         if not data.get("email"):
             return JSONResponse(status_code=400, content={"detail": "Missing email"})
         if not data.get("input_data"):
@@ -343,64 +305,83 @@ async def save_analysis(analysis: Analysis = Body(...)):
         if not data.get("result"):
             return JSONResponse(status_code=400, content={"detail": "Missing analysis result"})
 
-        # ✅ Firestore .add() returns (write_result, reference)
+        # Small safety normalisation: ensure result has both keys if possible
+        result = data.get("result") or {}
+        risk = result.get("overallRisk", result.get("risk_probability"))
+        mme = result.get("totalMME", result.get("daily_mme"))
+
+        if risk is not None and "overallRisk" not in result:
+            result["overallRisk"] = risk
+        if risk is not None and "risk_probability" not in result:
+            result["risk_probability"] = risk
+        if mme is not None and "totalMME" not in result:
+            result["totalMME"] = mme
+        if mme is not None and "daily_mme" not in result:
+            result["daily_mme"] = mme
+
+        data["result"] = result
+
         _, doc_ref = analyses_ref.add(data)
 
         return {
             "status": "success",
             "id": doc_ref.id,
-            "message": "Analysis saved successfully"
+            "message": "Analysis saved successfully",
         }
 
     except Exception as e:
         print(f"🔥 Error in /analysis: {str(e)}")
         return JSONResponse(
             status_code=500,
-            content={
-                "detail": f"Error saving analysis: {str(e)}"
-            }
+            content={"detail": f"Error saving analysis: {str(e)}"},
         )
 
 
 @app.get("/analysis/{email}")
 async def get_user_analysis(email: str):
     try:
-        # Simple query without ordering
         query = analyses_ref.where("email", "==", email)
         docs = query.stream()
-        
+
         results = []
+        from datetime import datetime
+
         for doc in docs:
             data = doc.to_dict()
             data["id"] = doc.id
-            
-            # Handle timestamp conversion safely
+
+            # Normalise timestamp
             if "created_at" in data and data["created_at"] is not None:
                 try:
                     data["created_at"] = {"seconds": int(data["created_at"].timestamp())}
                 except (AttributeError, TypeError):
-                    from datetime import datetime
                     data["created_at"] = {"seconds": int(datetime.now().timestamp())}
             else:
-                # If no timestamp, use current time
-                from datetime import datetime
                 data["created_at"] = {"seconds": int(datetime.now().timestamp())}
-            
+
+            # Normalise result fields for History consumption
+            result = data.get("result") or {}
+            risk = result.get("overallRisk", result.get("risk_probability", 0.0))
+            mme = result.get("totalMME", result.get("daily_mme"))
+
+            result["overallRisk"] = float(risk) if risk is not None else 0.0
+            if mme is not None:
+                result["totalMME"] = float(mme)
+                result["daily_mme"] = float(mme)
+
+            data["result"] = result
             results.append(data)
-        
-        # Sort in memory by timestamp (newest first)
+
         results.sort(key=lambda x: x["created_at"]["seconds"], reverse=True)
-        
+
         return {"analyses": results}
     except Exception as e:
         print(f"Error in get_user_analysis: {str(e)}")
         return JSONResponse(
             status_code=500,
-            content={
-                "detail": "Failed to fetch analyses",
-                "error": str(e)
-            }
+            content={"detail": "Failed to fetch analyses", "error": str(e)},
         )
+
 
 @app.put("/analysis/{analysis_id}/pin")
 async def pin_analysis(analysis_id: str, payload: Dict[str, bool] = Body(...)):
@@ -411,25 +392,47 @@ async def pin_analysis(analysis_id: str, payload: Dict[str, bool] = Body(...)):
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
+@app.delete("/analysis/{analysis_id}")
+async def delete_analysis(analysis_id: str):
+    try:
+        doc_ref = analyses_ref.document(analysis_id)
+        if not doc_ref.get().exists:
+            return JSONResponse(
+                status_code=404,
+                content={"detail": "Analysis not found"}
+            )
+        doc_ref.delete()
+
+        return {"status": "success", "message": "Analysis deleted successfully"}
+
+    except Exception as e:
+        print("🔥 ERROR in DELETE /analysis:", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e)}
+        )
+
+
 @app.get("/analysis/pinned/{email}")
 def get_pinned_analysis(email: str):
     try:
-        # no order_by → avoid Firestore index requirement
         query = analyses_ref.where("email", "==", email).where("pinned", "==", True)
         docs = query.stream()
 
         results = []
+        from datetime import datetime
+
         for doc in docs:
             data = doc.to_dict()
             data["id"] = doc.id
 
-            # timestamp normalization
             if "created_at" in data and hasattr(data["created_at"], "timestamp"):
                 data["created_at"] = {"seconds": int(data["created_at"].timestamp())}
+            else:
+                data["created_at"] = {"seconds": int(datetime.now().timestamp())}
 
             results.append(data)
 
-        # sort manually in Python
         results.sort(key=lambda x: x["created_at"]["seconds"], reverse=True)
 
         return {"analyses": results}

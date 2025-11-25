@@ -30,8 +30,14 @@ def predict_risk(patient_data):
         if col not in df:
             df[col] = "unknown"
 
-    # Label encode categorical features
+        # Label encode categorical features (skip target / missing cols like overdose_risk_label)
+    used_cat_cols = []
+
     for col, le in label_encoders.items():
+        # Only encode columns that actually exist in the incoming data
+        if col not in df.columns:
+            continue  # e.g. skip 'overdose_risk_label' at prediction time
+
         df[col] = df[col].astype(str)
 
         # Add unseen values safely
@@ -40,9 +46,11 @@ def predict_risk(patient_data):
                 le.classes_ = np.append(le.classes_, label)
 
         df[col + "_encoded"] = le.transform(df[col])
+        used_cat_cols.append(col)
 
-    # Drop original categorical columns
-    df = df.drop(columns=list(label_encoders.keys()))
+    # Drop only the original categorical columns we actually encoded
+    df = df.drop(columns=used_cat_cols, errors="ignore")
+
 
     # Correct feature order
     feature_names = [

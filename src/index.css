@@ -1,4 +1,3 @@
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 
 @tailwind base;
@@ -90,10 +89,15 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading font-medium;
   }
-  
+
   .dark-transition {
     @apply transition-colors duration-300;
   }
@@ -128,8 +132,15 @@
 
 /* Animation classes */
 @keyframes fade-in {
-  0% { opacity: 0; transform: translateY(10px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
@@ -149,4 +160,25 @@
 /* Glassmorphism styles */
 .glass-card {
   @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border border-white/20 dark:border-gray-700/50;
+}
+
+/* Dark mode scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d1117;
+  /* deep black */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f6feb;
+  /* GitHub blue */
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #388bfd;
+  /* lighter blue on hover */
 }
