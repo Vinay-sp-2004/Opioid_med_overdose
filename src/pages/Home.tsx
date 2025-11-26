@@ -8,29 +8,10 @@ const Home = () => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // // theme state (persisted)
-  // const [isDark, setIsDark] = useState<boolean>(() => {
-  //   const stored = localStorage.getItem("theme");
-  //   if (stored) return stored === "dark";
-  //   return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  // });
-
   useEffect(() => {
     const userJson = localStorage.getItem("user");
     setIsLoggedIn(!!userJson);
   }, []);
-
-  // // apply theme to document element so Tailwind dark: classes work
-  // useEffect(() => {
-  //   const root = document.documentElement;
-  //   if (isDark) {
-  //     root.classList.add("dark");
-  //     localStorage.setItem("theme", "dark");
-  //   } else {
-  //     root.classList.remove("dark");
-  //     localStorage.setItem("theme", "light");
-  //   }
-  // }, [isDark]);
 
   const handleLogout = () => {
     // remove auth and optional local profile copies

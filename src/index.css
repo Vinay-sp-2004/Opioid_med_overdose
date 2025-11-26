@@ -182,3 +182,45 @@
   background: #388bfd;
   /* lighter blue on hover */
 }
+
+/* Light mode scrollbar */
+:root ::-webkit-scrollbar {
+  width: 10px;
+}
+
+:root ::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  /* light gray */
+}
+
+:root ::-webkit-scrollbar-thumb {
+  background: #cccccc;
+  /* medium gray */
+  border-radius: 8px;
+}
+
+:root ::-webkit-scrollbar-thumb:hover {
+  background: #b3b3b3;
+  /* darker gray on hover */
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar {
+  width: 10px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0d1117;
+  /* deep black */
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1f6feb;
+  /* GitHub blue */
+  border-radius: 8px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #388bfd;
+  /* lighter blue on hover */
+}
