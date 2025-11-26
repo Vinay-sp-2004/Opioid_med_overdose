@@ -22,7 +22,7 @@ This full-stack project includes:
 
 <div align="center">
 
-## 🎥 **UI Preview (Add screenshots here later)**  
+## 🎥 **UI Preview**  
 📊 Dashboard • 📈 Risk Charts • 💊 Form • 🗂️ History • ⚙️ Settings
 
 </div>
